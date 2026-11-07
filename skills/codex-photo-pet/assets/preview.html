@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pet 动作预览</title>
+<style>body{margin:28px auto;padding:0 20px;max-width:900px;background:#eeece7;color:#323331;font:15px system-ui}#stage{min-height:450px;display:grid;place-items:center;border:1px solid #d8d4cc;border-radius:20px;background:#f9f8f5}canvas{max-width:100%;height:auto}nav,#controls{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}button,select{font:inherit;padding:9px 12px;border:1px solid #d1ccc3;border-radius:9px;background:white}button[aria-pressed=true]{background:#36455a;color:white}#status{color:#765b45}</style>
+<h1>Pet 动作预览</h1><div id="stage"><canvas id="pet" width="384" height="416"></canvas></div><nav id="states"></nav><div id="controls"><button id="pause">暂停</button><label>速度 <select id="speed"><option>0.5</option><option>0.65</option><option>0.8</option><option>1</option><option>1.25</option></select></label><label>大小 <select id="size"><option>1</option><option selected>2</option><option>3</option></select></label><button id="look">跟随光标</button><button id="theme">切换背景</button></div><p id="status"></p><a href="all-states.gif">GIF</a> · <a id="video" href="all-states.mp4">视频</a> · <a href="four-stills.png">动作静帧</a>
+<script>
+const profile=__PROFILE_JSON__;
+document.getElementById('video').hidden=!profile.mp4;
+const canvas=document.getElementById('pet'),context=canvas.getContext('2d'),image=new Image(),reduced=matchMedia('(prefers-reduced-motion: reduce)');
+let state=0,frame=0,last=0,cycles=0,speed=profile.speed,paused=reduced.matches,follow=false,look=0,ready=false;
+document.getElementById('status').textContent=profile.timing_profile==='native'?'桌面时序预览：待机倍率 '+profile.idle_multiplier+'，动作播放三轮后回到待机。此页调速不会修改桌面 Pet。':'基础时序预览；此页调速不会修改桌面 Pet。';
+const speedInput=document.getElementById('speed');if(![...speedInput.options].some(o=>Number(o.value)===speed))speedInput.add(new Option(String(speed),String(speed)));speedInput.value=String(speed);
+function draw(){if(!ready)return;context.clearRect(0,0,canvas.width,canvas.height);const row=follow?9+Math.floor(look/8):state,col=follow?look%8:frame;context.drawImage(image,col*192,row*208,192,208,0,0,canvas.width,canvas.height)}
+function markState(){document.querySelectorAll('nav button').forEach((button,index)=>button.setAttribute('aria-pressed',String(index===state)))}
+profile.states.forEach((s,index)=>{const button=document.createElement('button');button.textContent=s.state;button.setAttribute('aria-pressed',String(index===0));button.onclick=()=>{state=index;frame=0;cycles=0;follow=false;last=performance.now();markState();draw()};document.getElementById('states').append(button)});
+function advance(){frame++;if(frame===profile.states[state].frames){frame=0;cycles++;if(state!==0&&profile.action_cycles&&cycles>=profile.action_cycles){state=0;cycles=0;markState()}}}
+function motion(now){if(!ready||paused||follow){last=now}else{let count=0;while(now-last>=profile.states[state].durations[frame]/speed&&count++<100){last+=profile.states[state].durations[frame]/speed;advance();draw()}if(count>=100)last=now}requestAnimationFrame(motion)}requestAnimationFrame(motion);
+document.getElementById('pause').textContent=paused?'播放':'暂停';document.getElementById('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'播放':'暂停';last=performance.now()};
+speedInput.onchange=e=>{speed=Number(e.target.value);last=performance.now()};document.getElementById('size').onchange=e=>{canvas.width=192*Number(e.target.value);canvas.height=208*Number(e.target.value);draw()};
+document.getElementById('look').disabled=profile.version!==2;document.getElementById('look').onclick=()=>{follow=!follow;draw()};document.getElementById('theme').onclick=()=>{const stage=document.getElementById('stage');stage.style.background=stage.style.background?'':'#252934'};
+document.addEventListener('pointermove',e=>{if(!follow||paused)return;const b=canvas.getBoundingClientRect(),x=e.clientX-b.left-b.width/2,y=e.clientY-b.top-b.height*.18;look=Math.round(((Math.atan2(x,-y)*180/Math.PI+360)%360)/22.5)%16;draw()});
+reduced.addEventListener('change',e=>{if(e.matches){paused=true;document.getElementById('pause').textContent='播放'}});
+image.onload=()=>{ready=true;last=performance.now();draw()};image.onerror=()=>{document.getElementById('status').textContent='图集无法加载，请保持此文件和 atlas 图片在同一目录。'};image.src=profile.image;
+</script></html>

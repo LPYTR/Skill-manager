@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.test-data/
+.local-data/
+*.log
+coverage/
+output/
+AnyImage.v1.1.7.windows-x64.zip
